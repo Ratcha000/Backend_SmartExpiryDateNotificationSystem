@@ -211,6 +211,51 @@ OCR / Scan Support
 - POST /api/ocr/scan-image
 - POST /api/ocr/extract-expiry-date
 
+### 3.1) API Access Matrix
+
+หมายเหตุ
+- `Public` คือ endpoint ที่เรียกได้โดยไม่ต้องล็อกอิน
+- `Manager, Employee` คือผู้ใช้ที่ล็อกอินแล้วและอยู่ในขอบเขตข้อมูลของร้านที่ตนมีสิทธิ์เข้าถึง
+- endpoint ที่เกี่ยวกับการจัดการร้าน, สมาชิก, หรือรายงานเชิงบริหาร ให้ถือว่า Manager เป็นผู้มีสิทธิ์หลัก
+
+| Method | Endpoint | Role ที่เข้าได้ | หน้าที่ |
+| --- | --- | --- | --- |
+| POST | `/api/auth/register` | Public | สมัครสมาชิกใหม่และกำหนดบทบาทเริ่มต้นของผู้ใช้ |
+| POST | `/api/auth/login` | Public | ล็อกอินเพื่อรับ access token และข้อมูลผู้ใช้ |
+| POST | `/api/auth/logout` | Manager, Employee | ออกจากระบบโดยให้ client ล้าง token ที่เก็บไว้ |
+| GET | `/api/auth/me` | Manager, Employee | ดึงข้อมูลผู้ใช้ที่ล็อกอินอยู่ในปัจจุบัน |
+| GET | `/api/users/me` | Manager, Employee | ดูโปรไฟล์ของผู้ใช้ปัจจุบัน |
+| GET | `/api/users/{id}` | Manager, Employee | ดูรายละเอียดผู้ใช้ตามรหัสผู้ใช้ |
+| PUT | `/api/users/{id}` | Manager, Employee | แก้ไขข้อมูลผู้ใช้ เช่น display name หรือข้อมูลที่ระบบอนุญาต |
+| GET | `/api/users?restaurantId=` | Manager | ดูรายชื่อผู้ใช้ โดยสามารถกรองตามร้านอาหารได้ |
+| POST | `/api/restaurants` | Manager | สร้างร้านอาหารใหม่และผูก manager เข้ากับร้าน |
+| GET | `/api/restaurants/{id}` | Manager, Employee | ดูรายละเอียดร้านอาหารของร้านที่ผู้ใช้สังกัด |
+| PUT | `/api/restaurants/{id}` | Manager | แก้ไขข้อมูลร้านอาหาร |
+| GET | `/api/restaurants/invite/{inviteCode}` | Public | ตรวจสอบ invite code และดูข้อมูลร้านเบื้องต้นก่อนเข้าร่วม |
+| POST | `/api/restaurants/{id}/invite-code` | Manager | สร้างหรือเปลี่ยน invite code สำหรับเชิญพนักงาน |
+| GET | `/api/restaurants/{id}/members` | Manager | ดูรายชื่อสมาชิกในร้าน |
+| POST | `/api/ingredients` | Manager, Employee | เพิ่มวัตถุดิบใหม่เข้าสู่ระบบของร้าน |
+| GET | `/api/ingredients?restaurantId=&status=` | Manager, Employee | ดูรายการวัตถุดิบโดยกรองตามร้านและสถานะได้ |
+| GET | `/api/ingredients/{id}` | Manager, Employee | ดูรายละเอียดวัตถุดิบรายชิ้น |
+| PUT | `/api/ingredients/{id}` | Manager, Employee | แก้ไขข้อมูลวัตถุดิบ เช่น ชื่อ หมวดหมู่ วันหมดอายุ และการแจ้งเตือน |
+| PATCH | `/api/ingredients/{id}/used` | Manager, Employee | เปลี่ยนสถานะวัตถุดิบเป็น used และบันทึกประวัติการใช้งาน |
+| PATCH | `/api/ingredients/{id}/delete` | Manager, Employee | เปลี่ยนสถานะวัตถุดิบเป็น deleted และบันทึกประวัติการใช้งาน |
+| PATCH | `/api/ingredients/{id}/status` | Manager, Employee | ปรับสถานะวัตถุดิบตาม workflow ของร้าน |
+| GET | `/api/ingredients/expiring?restaurantId=` | Manager, Employee | ดูรายการวัตถุดิบที่ใกล้หมดอายุ |
+| GET | `/api/ingredients/expired?restaurantId=` | Manager, Employee | ดูรายการวัตถุดิบที่หมดอายุแล้ว |
+| POST | `/api/usage-history` | Manager, Employee | บันทึกเหตุการณ์การใช้งานหรือการเปลี่ยนแปลงวัตถุดิบ |
+| GET | `/api/usage-history?restaurantId=` | Manager | ดูประวัติการใช้งานของร้านตามช่วงข้อมูลที่ต้องการ |
+| GET | `/api/usage-history/{id}` | Manager | ดูรายละเอียดประวัติการใช้งานแต่ละรายการ |
+| POST | `/api/suggestions/menu` | Manager, Employee | ขอเมนูแนะนำจากวัตถุดิบที่มีหรือใกล้หมดอายุ |
+| GET | `/api/suggestions/ingredients/near-expiry?restaurantId=` | Manager, Employee | ดูกลุ่มวัตถุดิบใกล้หมดอายุเพื่อใช้เป็นต้นทางของคำแนะนำ |
+| GET | `/api/suggestions/menu/{ingredientName}` | Manager, Employee | ดูเมนูแนะนำที่สัมพันธ์กับวัตถุดิบที่ระบุ |
+| GET | `/api/notifications` | Manager, Employee | ดูรายการการแจ้งเตือนของผู้ใช้หรือของร้าน |
+| POST | `/api/notifications/test` | Manager | ทดสอบการสร้างหรือส่ง notification |
+| PATCH | `/api/notifications/{id}/read` | Manager, Employee | ทำเครื่องหมายว่าอ่าน notification แล้ว |
+| POST | `/api/ocr/scan` | Manager, Employee | สแกนข้อมูลวันหมดอายุจากกล้องหรือแหล่งข้อมูลสด |
+| POST | `/api/ocr/scan-image` | Manager, Employee | อัปโหลดรูปภาพเพื่อให้ระบบ OCR อ่านข้อมูล |
+| POST | `/api/ocr/extract-expiry-date` | Manager, Employee | แยกและตีความวันหมดอายุจากข้อความหรือผล OCR |
+
 ### 4) Backend Workflow
 
 #### Register / Login Flow
