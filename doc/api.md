@@ -4,11 +4,14 @@
 
 โปรเจคนี้มีเป้าหมายหลักคือ
 - บันทึกวัตถุดิบในร้านอาหารพร้อมวันหมดอายุ
+- บันทึกปริมาณวัตถุดิบคงเหลือพร้อมหน่วย เช่น กิโลกรัม ขวด ชิ้น แพ็ก
 - ตรวจสอบวัตถุดิบที่ใกล้หมดอายุและหมดอายุแล้ว
 - แจ้งเตือนผู้ใช้ล่วงหน้าตามจำนวนวันที่กำหนด
 - รองรับการแยกบทบาทผู้ใช้งาน เช่น Manager และ Employee
 - รองรับการสแกนวันหมดอายุจากกล้องหรืออัปโหลดรูปภาพ
 - รองรับการสร้างเมนูแนะนำจากวัตถุดิบที่ใกล้หมดอายุโดยใช้ AI
+- รองรับการติดตามการใช้วัตถุดิบบางส่วนก่อนหมดอายุ
+- รองรับ AI recommendation สำหรับการวางแผนซื้อวัตถุดิบรอบถัดไป
 
 ระบบเดิมจากแอป Android มีแนวคิดหลักดังนี้
 - ใช้ Firebase Authentication สำหรับล็อกอิน/สมัครสมาชิก
@@ -59,9 +62,11 @@
 - Restaurant management
 - Ingredient management
 - Ingredient expiry tracking
+- Quantity-based inventory tracking
 - Manual and OCR-based ingredient input
 - Notification system
 - Suggestion system for menu ideas
+- Purchase planning and reorder recommendation
 - Usage history tracking
 - Offline-friendly behavior on client side หากต้องการ
 
@@ -86,11 +91,16 @@
 - restaurantId
 - name
 - category
+- initialQuantity
+- quantity
+- unit
+- categoryUnitHint optional สำหรับใช้เป็น preset ฝั่ง UI
 - expiryDate
 - notifyDaysBefore
 - status: active, used, deleted, expired
 - scannedBy
 - scannedAt
+- lastUsedAt optional
 - updatedBy
 - createdAt
 - updatedAt
@@ -99,7 +109,11 @@
 - id
 - ingredientId
 - ingredientName
-- actionType: used, deleted, edited, added
+- actionType: added, edited, consumed, restocked, adjusted, used, deleted
+- quantityChanged
+- unit
+- quantityBefore
+- quantityAfter
 - performedBy
 - performedAt
 - restaurantId
@@ -118,16 +132,42 @@
 - menus
 - state สำหรับ UI เช่น expanded, loading, hasLoaded
 
+### RestaurantPurchaseSetting
+- restaurantId
+- buyCycleDays
+- nextPlannedPurchaseDate optional
+- safetyBufferPercent optional
+- updatedAt
+
+### PurchaseRecommendation
+- ingredientName
+- category
+- unit
+- currentQuantity
+- estimatedConsumptionUntilNextCycle
+- recommendedBuyQuantity
+- reason
+- confidence optional
+
 ## Business Rules
 
 - วัตถุดิบทุกชิ้นต้องผูกกับ restaurantId เสมอ
+- วัตถุดิบทุกชิ้นต้องมี quantity และ unit ชัดเจน
+- quantity ต้องมีค่า >= 0
+- initialQuantity ต้องมีค่า >= quantity ตอนสร้างรายการใหม่
 - วัตถุดิบที่มีสถานะ active เท่านั้นที่ต้องนำไปคำนวณแจ้งเตือน
 - ถ้า daysLeft < 0 ให้ถือว่า expired
 - ถ้า daysLeft <= notifyDaysBefore ให้ถือว่าใกล้หมดอายุ
 - เมื่อแก้ไขวัตถุดิบ ต้องอัปเดต updatedAt และ updatedBy
+- การใช้วัตถุดิบบางส่วนต้องหัก quantity และเก็บประวัติการใช้งาน
+- ถ้า quantity เหลือ 0 ให้เปลี่ยนสถานะเป็น used อัตโนมัติ
+- ห้าม consume quantity มากกว่าปริมาณคงเหลือ เว้นแต่เป็น flow ปรับสต็อกที่อนุญาตเฉพาะ Manager
 - เมื่อ mark ว่า used หรือ delete ต้องเก็บประวัติการใช้งาน
 - การเพิ่มวัตถุดิบจาก OCR ต้องรองรับการแก้ไขข้อมูลก่อนบันทึก
 - 1 ร้านอาหารสามารถมีสมาชิกหลายคน แต่ทุกคนต้องอยู่ภายใต้ restaurantId เดียวกัน
+- buy cycle สำหรับการซื้อวัตถุดิบกำหนดในระดับร้านอาหารสำหรับ v1
+- AI reorder recommendation ต้องอิงอย่างน้อย usage history และ buyCycleDays
+- category สามารถช่วยแนะนำหน่วยตั้งต้นได้ แต่ unit ที่เก็บใน ingredient record คือ source of truth
 
 ## Backend Requirements: Java Spring Boot
 
@@ -153,10 +193,13 @@
 - ตรวจสอบ role ของผู้ใช้
 - จัดการร้านอาหารและ invite code
 - CRUD วัตถุดิบ
+- จัดการ quantity-based inventory และ stock movement
 - เก็บ history ของการใช้งาน
 - ตรวจสอบวัตถุดิบใกล้หมดอายุอัตโนมัติ
 - สร้าง notification payload สำหรับ frontend หรือ push notification service
 - เรียก AI service สำหรับ menu suggestions หากต้องการ
+- คำนวณแนวโน้มการใช้วัตถุดิบจาก usage history
+- สร้างคำแนะนำปริมาณซื้อรอบถัดไปจาก buy cycle และ usage trend
 
 ### 3) API ที่ควรมี
 
@@ -182,24 +225,34 @@ Restaurants
 
 Ingredients
 - POST /api/ingredients
-- GET /api/ingredients?restaurantId=&status=
+- GET /api/ingredients?restaurantId=&status=&category=
 - GET /api/ingredients/{id}
 - PUT /api/ingredients/{id}
+- PATCH /api/ingredients/{id}/consume
+- PATCH /api/ingredients/{id}/restock
+- PATCH /api/ingredients/{id}/adjust-quantity
 - PATCH /api/ingredients/{id}/used
 - PATCH /api/ingredients/{id}/delete
 - PATCH /api/ingredients/{id}/status
 - GET /api/ingredients/expiring?restaurantId=
 - GET /api/ingredients/expired?restaurantId=
+- GET /api/ingredients/low-stock?restaurantId=
 
 Usage History
 - POST /api/usage-history
-- GET /api/usage-history?restaurantId=
+- GET /api/usage-history?restaurantId=&ingredientId=&actionType=
 - GET /api/usage-history/{id}
 
 Suggestions
 - POST /api/suggestions/menu
 - GET /api/suggestions/ingredients/near-expiry?restaurantId=
 - GET /api/suggestions/menu/{ingredientName}
+
+Purchase Planning
+- GET /api/purchase-settings/{restaurantId}
+- PUT /api/purchase-settings/{restaurantId}
+- GET /api/purchase-recommendations?restaurantId=
+- POST /api/purchase-recommendations/generate
 
 Notifications
 - GET /api/notifications
@@ -235,20 +288,28 @@ OCR / Scan Support
 | POST | `/api/restaurants/{id}/invite-code` | Manager | สร้างหรือเปลี่ยน invite code สำหรับเชิญพนักงาน |
 | GET | `/api/restaurants/{id}/members` | Manager | ดูรายชื่อสมาชิกในร้าน |
 | POST | `/api/ingredients` | Manager, Employee | เพิ่มวัตถุดิบใหม่เข้าสู่ระบบของร้าน |
-| GET | `/api/ingredients?restaurantId=&status=` | Manager, Employee | ดูรายการวัตถุดิบโดยกรองตามร้านและสถานะได้ |
-| GET | `/api/ingredients/{id}` | Manager, Employee | ดูรายละเอียดวัตถุดิบรายชิ้น |
-| PUT | `/api/ingredients/{id}` | Manager, Employee | แก้ไขข้อมูลวัตถุดิบ เช่น ชื่อ หมวดหมู่ วันหมดอายุ และการแจ้งเตือน |
-| PATCH | `/api/ingredients/{id}/used` | Manager, Employee | เปลี่ยนสถานะวัตถุดิบเป็น used และบันทึกประวัติการใช้งาน |
+| GET | `/api/ingredients?restaurantId=&status=&category=` | Manager, Employee | ดูรายการวัตถุดิบโดยกรองตามร้าน สถานะ และหมวดหมู่ได้ พร้อมข้อมูล quantity และ unit |
+| GET | `/api/ingredients/{id}` | Manager, Employee | ดูรายละเอียดวัตถุดิบรายชิ้น รวมทั้ง quantity คงเหลือและ unit |
+| PUT | `/api/ingredients/{id}` | Manager, Employee | แก้ไขข้อมูลวัตถุดิบ เช่น ชื่อ หมวดหมู่ quantity unit วันหมดอายุ และการแจ้งเตือน |
+| PATCH | `/api/ingredients/{id}/consume` | Manager, Employee | หักปริมาณวัตถุดิบตามจำนวนที่ใช้ และบันทึก quantity before/after |
+| PATCH | `/api/ingredients/{id}/restock` | Manager, Employee | เพิ่มปริมาณวัตถุดิบในรายการเดิมสำหรับของที่เติมเข้ามา |
+| PATCH | `/api/ingredients/{id}/adjust-quantity` | Manager | ปรับ quantity โดยตรงจากการนับของจริงหรือแก้ข้อมูลผิดพลาด |
+| PATCH | `/api/ingredients/{id}/used` | Manager, Employee | ปิดรายการวัตถุดิบเป็น used แบบ explicit เมื่อไม่ใช้ flow consume เป็นหลัก |
 | PATCH | `/api/ingredients/{id}/delete` | Manager, Employee | เปลี่ยนสถานะวัตถุดิบเป็น deleted และบันทึกประวัติการใช้งาน |
 | PATCH | `/api/ingredients/{id}/status` | Manager, Employee | ปรับสถานะวัตถุดิบตาม workflow ของร้าน |
 | GET | `/api/ingredients/expiring?restaurantId=` | Manager, Employee | ดูรายการวัตถุดิบที่ใกล้หมดอายุ |
 | GET | `/api/ingredients/expired?restaurantId=` | Manager, Employee | ดูรายการวัตถุดิบที่หมดอายุแล้ว |
-| POST | `/api/usage-history` | Manager, Employee | บันทึกเหตุการณ์การใช้งานหรือการเปลี่ยนแปลงวัตถุดิบ |
-| GET | `/api/usage-history?restaurantId=` | Manager | ดูประวัติการใช้งานของร้านตามช่วงข้อมูลที่ต้องการ |
+| GET | `/api/ingredients/low-stock?restaurantId=` | Manager, Employee | ดูรายการวัตถุดิบที่ปริมาณคงเหลืออยู่ในระดับต่ำเพื่อช่วยวางแผนการซื้อ |
+| POST | `/api/usage-history` | Manager, Employee | บันทึกเหตุการณ์การใช้งานหรือการเปลี่ยนแปลงวัตถุดิบ รวมถึง quantity movement |
+| GET | `/api/usage-history?restaurantId=&ingredientId=&actionType=` | Manager | ดูประวัติการใช้งานของร้านโดยกรองตามวัตถุดิบหรือประเภทเหตุการณ์ได้ |
 | GET | `/api/usage-history/{id}` | Manager | ดูรายละเอียดประวัติการใช้งานแต่ละรายการ |
 | POST | `/api/suggestions/menu` | Manager, Employee | ขอเมนูแนะนำจากวัตถุดิบที่มีหรือใกล้หมดอายุ |
 | GET | `/api/suggestions/ingredients/near-expiry?restaurantId=` | Manager, Employee | ดูกลุ่มวัตถุดิบใกล้หมดอายุเพื่อใช้เป็นต้นทางของคำแนะนำ |
 | GET | `/api/suggestions/menu/{ingredientName}` | Manager, Employee | ดูเมนูแนะนำที่สัมพันธ์กับวัตถุดิบที่ระบุ |
+| GET | `/api/purchase-settings/{restaurantId}` | Manager | ดูค่ารอบการซื้อวัตถุดิบของร้าน เช่น buy cycle days |
+| PUT | `/api/purchase-settings/{restaurantId}` | Manager | ตั้งค่าหรือแก้ไขรอบการซื้อวัตถุดิบของร้าน |
+| GET | `/api/purchase-recommendations?restaurantId=` | Manager | ดูรายการ recommendation สำหรับการซื้อวัตถุดิบรอบถัดไป |
+| POST | `/api/purchase-recommendations/generate` | Manager | สั่งให้ระบบคำนวณ recommendation ใหม่จาก stock และ usage history ล่าสุด |
 | GET | `/api/notifications` | Manager, Employee | ดูรายการการแจ้งเตือนของผู้ใช้หรือของร้าน |
 | POST | `/api/notifications/test` | Manager | ทดสอบการสร้างหรือส่ง notification |
 | PATCH | `/api/notifications/{id}/read` | Manager, Employee | ทำเครื่องหมายว่าอ่าน notification แล้ว |
@@ -267,9 +328,22 @@ OCR / Scan Support
 
 #### Ingredient Add Flow
 1. Frontend ส่งข้อมูลวัตถุดิบ
-2. Backend validate ชื่อ, category, expiryDate, notifyDaysBefore
+2. Backend validate ชื่อ, category, initialQuantity, quantity, unit, expiryDate, notifyDaysBefore
 3. ระบบบันทึกลงฐานข้อมูลพร้อม createdAt/updatedAt
 4. สร้างประวัติการเพิ่มข้อมูล
+
+#### Ingredient Consume Flow
+1. Frontend เลือกรายการวัตถุดิบและกรอกจำนวนที่ใช้
+2. Backend ตรวจว่า quantity ที่ขอใช้มากกว่า 0 และไม่เกินปริมาณคงเหลือ
+3. ระบบหัก quantity คงเหลือ
+4. ถ้า quantity เหลือ 0 ให้เปลี่ยนสถานะเป็น used อัตโนมัติ
+5. บันทึก usage history พร้อม quantityBefore, quantityChanged, quantityAfter, unit
+
+#### Ingredient Restock / Adjustment Flow
+1. Frontend ส่งจำนวนที่ต้องการเพิ่มหรือปรับแก้
+2. Backend ตรวจสิทธิ์ของผู้ใช้ โดย adjustment direct quantity ให้ Manager เป็นหลัก
+3. ระบบอัปเดต quantity และ updatedAt/updatedBy
+4. บันทึก usage history เป็น restocked หรือ adjusted
 
 #### Expiry Check Flow
 1. Scheduled job รันทุกวัน
@@ -284,6 +358,14 @@ OCR / Scan Support
 3. AI คืนเมนูแนะนำ, วัตถุดิบที่ต้องใช้, วัตถุดิบที่มีอยู่, ขั้นตอนทำอาหาร
 4. Backend cache ผลลัพธ์ถ้าจำเป็น
 
+#### Purchase Recommendation Flow
+1. Manager ตั้งค่า buyCycleDays ของร้าน
+2. Backend ดึง usage history และ quantity คงเหลือของวัตถุดิบแต่ละรายการ
+3. ระบบคำนวณอัตราการใช้เฉลี่ยต่อวันหรือเฉลี่ยต่อรอบ
+4. ประเมินปริมาณที่ต้องใช้จนถึงรอบซื้อครั้งถัดไป
+5. AI service หรือ rule engine สร้าง recommendedBuyQuantity พร้อมเหตุผลประกอบ
+6. ส่งผลลัพธ์ให้ frontend ใช้เป็นรายการช่วยตัดสินใจก่อนซื้อของเข้าร้าน
+
 ## Frontend Requirements
 
 Frontend ต้องเน้นการใช้งานจริงในร้านอาหาร จึงควรเรียบง่าย เร็ว และกดใช้งานได้ในไม่กี่ขั้นตอน
@@ -295,11 +377,15 @@ Frontend ต้องเน้นการใช้งานจริงใน�
 - Dashboard screen
 - Ingredient list screen
 - Ingredient detail / edit screen
+- Ingredient consume modal or page
+- Ingredient restock / stock adjustment modal
 - Scan screen for OCR
 - Add ingredient dialog or page
 - Suggestions screen
+- Purchase recommendation screen
 - Profile screen
 - Settings screen
+- Purchase settings screen
 - Manager dashboard
 - Employee dashboard
 
@@ -308,17 +394,23 @@ Frontend ต้องเน้นการใช้งานจริงใน�
 - แสดงสีสถานะตามความเสี่ยงของวันหมดอายุ
 - ค้นหาและกรองตาม category
 - เรียงลำดับตามวันหมดอายุ
+- แสดง quantity คงเหลือและ unit อย่างชัดเจน
 - ปัดลบ / mark as used / edit item
+- บันทึกการใช้วัตถุดิบบางส่วนด้วยการกรอกจำนวนที่ใช้
+- เพิ่ม stock หรือปรับ stock ได้ตามสิทธิ์
 - สแกนวันหมดอายุจากกล้อง
 - อัปโหลดรูปจาก gallery
 - แสดงคำแนะนำเมนูที่ใช้วัตถุดิบใกล้หมดอายุ
+- แสดงคำแนะนำปริมาณซื้อรอบถัดไป
 - แสดงการแจ้งเตือนและ history
 
 ### 3) Frontend UX Requirements
 - UI ต้องใช้งานง่ายสำหรับคนทำงานภาคสนาม
-- ปุ่มหลักต้องชัดเจน เช่น Scan, Add, Save, Used, Delete
+- ปุ่มหลักต้องชัดเจน เช่น Scan, Add, Save, Consume, Used, Delete
 - ต้องรองรับมือถือเป็นหลัก
-- ข้อมูลสำคัญ เช่น days left, status, expiry date ต้องมองเห็นเร็ว
+- ข้อมูลสำคัญ เช่น days left, status, expiry date, remaining quantity ต้องมองเห็นเร็ว
+- ควรมี preset unit ตาม category เช่น เนื้อสัตว์เป็น kg, ซอสเป็น bottle, วัตถุดิบชิ้นนับเป็น pcs
+- flow การใช้วัตถุดิบต้องกรอกจำนวนได้เร็วและเห็นยอดคงเหลือทันที
 - แสดง empty state และ error state อย่างชัดเจน
 - ควรมี loading state ระหว่างดึงข้อมูลหรือสแกน OCR
 
@@ -357,6 +449,18 @@ Frontend ต้องเน้นการใช้งานจริงใน�
 
 ถ้าจะเชื่อม AI service ให้ backend เป็นตัวกลางเรียก AI แทน frontend เพื่อควบคุมข้อมูลและความปลอดภัย
 
+## AI Purchase Recommendation Specification
+
+ระบบแนะนำการซื้อวัตถุดิบควรทำงานดังนี้
+- ใช้ quantity คงเหลือปัจจุบันของวัตถุดิบแต่ละรายการ
+- ใช้ usage history เพื่อคำนวณแนวโน้มการใช้จริง
+- ใช้ buyCycleDays ของร้านเพื่อประเมินว่าต้องมีของพอถึงรอบซื้อถัดไป
+- แนะนำ recommendedBuyQuantity พร้อม unit เดิมของวัตถุดิบนั้น
+- แสดงเหตุผลประกอบ เช่น ใช้เฉลี่ยสูงขึ้น, stock ปัจจุบันไม่พอถึงรอบถัดไป, หรือมีของใกล้หมดอายุที่ควรระวัง
+- เปิดทางให้มี safety buffer ในอนาคต เช่น สั่งเพิ่มอีก 10-20% สำหรับวัตถุดิบที่ใช้ผันผวน
+
+ถ้าระบบยังไม่พร้อมใช้ AI เต็มรูปแบบในช่วงแรก สามารถเริ่มจาก rule-based recommendation ก่อน แล้วค่อยเพิ่ม AI explanation ภายหลังได้
+
 ## Data Storage Suggestion
 
 ถ้าทำ backend ใหม่ด้วย Spring Boot แนะนำโครงสร้างฐานข้อมูลแบบ relational เช่น
@@ -365,14 +469,17 @@ Frontend ต้องเน้นการใช้งานจริงใน�
 - restaurants
 - ingredients
 - usage_history
+- restaurant_purchase_settings
 - notifications
 - menu_suggestions
+- purchase_recommendations
 
 ความสัมพันธ์หลัก
 - restaurant 1 ต่อ many users
 - restaurant 1 ต่อ many ingredients
 - ingredient 1 ต่อ many usage_history
 - restaurant 1 ต่อ many notifications
+- restaurant 1 ต่อ 1 purchase setting สำหรับ v1
 
 ## Acceptance Criteria
 
@@ -381,12 +488,18 @@ Frontend ต้องเน้นการใช้งานจริงใน�
 - แยก role manager และ employee ได้
 - สร้างร้านอาหารและ invite code ได้
 - เพิ่ม แก้ไข ลบ เปลี่ยนสถานะวัตถุดิบได้
+- เพิ่มวัตถุดิบพร้อม quantity และ unit ได้
+- ใช้วัตถุดิบบางส่วนและหัก stock ได้
+- ระบบ mark วัตถุดิบเป็น used อัตโนมัติเมื่อ quantity หมดได้
 - ดูรายการวัตถุดิบและสถานะได้
 - สแกนวันหมดอายุจาก OCR ได้
 - มี job ตรวจสอบวันหมดอายุอัตโนมัติ
 - แจ้งเตือนวัตถุดิบใกล้หมดอายุได้
 - ดูคำแนะนำเมนูจากวัตถุดิบใกล้หมดอายุได้
 - บันทึกประวัติการใช้งานได้
+- ดูประวัติการใช้วัตถุดิบแบบ quantity movement ได้
+- Manager ตั้งค่ารอบการซื้อของร้านได้
+- ระบบแนะนำปริมาณซื้อรอบถัดไปได้
 
 ## สิ่งที่ควรเน้นเวลาพัฒนา
 
@@ -395,8 +508,10 @@ Frontend ต้องเน้นการใช้งานจริงใน�
 - ตรวจสิทธิ์ทุก endpoint ตาม role และ restaurantId
 - ทำ validation ทั้งฝั่ง client และ server
 - เก็บ audit trail สำหรับการแก้ไขและลบข้อมูล
+- แยกให้ชัดระหว่าง flow consume, restock, และ manual adjustment
+- ทำ quantity และ unit ให้เป็น canonical data ของ ingredient แต่ละรายการ
 - ทำ API ให้พร้อมต่อยอดเป็น mobile app และ web app ได้ในอนาคต
 
 ## คำสั่งสุดท้ายสำหรับการพัฒนา
 
-ให้พัฒนาโปรเจคนี้เป็นระบบ Smart Expiry Date Notification System ที่มีโครงสร้างแยก frontend/backend ชัดเจน โดย backend ใช้ Java Spring Boot เป็นหลัก รองรับ authentication, restaurant management, ingredient tracking, OCR ingestion, notification scheduling, usage history, และ AI menu suggestion ส่วน frontend ให้เป็น client ที่เรียกใช้งานผ่าน REST API และเน้นประสบการณ์ใช้งานที่รวดเร็ว เข้าใจง่าย และเหมาะกับบริบทของร้านอาหารหรือครัวจริง
+ให้พัฒนาโปรเจคนี้เป็นระบบ Smart Expiry Date Notification System ที่มีโครงสร้างแยก frontend/backend ชัดเจน โดย backend ใช้ Java Spring Boot เป็นหลัก รองรับ authentication, restaurant management, ingredient tracking, quantity-based inventory, OCR ingestion, notification scheduling, usage history, AI menu suggestion, และ AI purchase recommendation ส่วน frontend ให้เป็น client ที่เรียกใช้งานผ่าน REST API และเน้นประสบการณ์ใช้งานที่รวดเร็ว เข้าใจง่าย และเหมาะกับบริบทของร้านอาหารหรือครัวจริง
