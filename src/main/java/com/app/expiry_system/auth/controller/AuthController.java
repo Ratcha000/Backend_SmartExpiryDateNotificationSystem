@@ -2,6 +2,7 @@ package com.app.expiry_system.auth.controller;
 
 import com.app.expiry_system.auth.dto.AuthResponse;
 import com.app.expiry_system.auth.dto.LoginRequest;
+import com.app.expiry_system.auth.dto.RefreshTokenRequest;
 import com.app.expiry_system.auth.dto.RegisterRequest;
 import com.app.expiry_system.auth.dto.UserResponse;
 import com.app.expiry_system.auth.security.AppUserPrincipal;
@@ -55,8 +56,15 @@ public class AuthController {
         return authService.login(request);
     }
 
+    @PostMapping("/refresh")
+    @Operation(summary = "Refresh access token using a refresh token")
+    public AuthResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        return authService.refresh(request);
+    }
+
     @PostMapping("/logout")
-    @Operation(summary = "Logout the current session")
+    @Operation(summary = "Client-side logout. The client must discard stored tokens.")
+    @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<Void> logout() {
         return ResponseEntity.noContent().build();
     }

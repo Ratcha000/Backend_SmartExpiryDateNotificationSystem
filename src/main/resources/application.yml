@@ -36,7 +36,8 @@ server:
 app:
   jwt:
     secret: ${JWT_SECRET:${SUPABASE_JWT_SECRET:Q29uZmlndXJlZC1kZWZhdWx0LXNlY3JldC1mb3ItZGV2ZWxvcG1lbnQtMTIzNDU2Nzg5MA==}}
-    expiration-minutes: ${JWT_EXPIRATION_MINUTES:1440}
+    access-expiration-minutes: ${JWT_ACCESS_EXPIRATION_MINUTES:15}
+    refresh-expiration-days: ${JWT_REFRESH_EXPIRATION_DAYS:7}
 
 springdoc:
   swagger-ui:
