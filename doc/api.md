@@ -90,6 +90,8 @@
 - id
 - restaurantId
 - name
+- lotId optional สำหรับผูกวัตถุดิบหลายรายการที่รับเข้ามาพร้อมกันใน lot เดียว
+- lotName optional เช่น เนื้อหมู, ไก่, อาหารทะเล
 - category
 - initialQuantity
 - quantity
@@ -155,6 +157,10 @@
 - วัตถุดิบทุกชิ้นต้องมี quantity และ unit ชัดเจน
 - quantity ต้องมีค่า >= 0
 - initialQuantity ต้องมีค่า >= quantity ตอนสร้างรายการใหม่
+- การรับวัตถุดิบหลายชิ้นส่วนในครั้งเดียวควรใช้ batch lot โดยให้วัตถุดิบแต่ละชิ้นเป็น ingredient แยกกัน แต่ใช้ lotId เดียวกัน
+- lotId ใช้สำหรับ group รายการที่เข้ามาพร้อมกัน เช่น เนื้อหมู - สันคอหมู, เนื้อหมู - หมูสามชั้น, เนื้อหมู - สะโพกหมู
+- วัตถุดิบใน batch lot ใช้ข้อมูลส่วนกลางร่วมกัน เช่น restaurantId, lotName, category, unit, expiryDate, notifyDaysBefore, scannedBy, scannedAt
+- quantity ของแต่ละชิ้นส่วนใน batch lot ต้องจัดการแยกกัน เพื่อให้ consume, restock, adjust ได้ตามรายการจริง
 - วัตถุดิบที่มีสถานะ active เท่านั้นที่ต้องนำไปคำนวณแจ้งเตือน
 - ถ้า daysLeft < 0 ให้ถือว่า expired
 - ถ้า daysLeft <= notifyDaysBefore ให้ถือว่าใกล้หมดอายุ
@@ -225,6 +231,7 @@ Restaurants
 
 Ingredients
 - POST /api/ingredients
+- POST /api/ingredients/batch
 - GET /api/ingredients?restaurantId=&status=&category=
 - GET /api/ingredients/{id}
 - PUT /api/ingredients/{id}
@@ -246,7 +253,7 @@ Usage History
 Suggestions
 - POST /api/suggestions/menu
 - GET /api/suggestions/ingredients/near-expiry?restaurantId=
-- GET /api/suggestions/menu/{ingredientName}
+- GET /api/suggestions/menu/{ingredientName}?restaurantId=
 
 Purchase Planning
 - GET /api/purchase-settings/{restaurantId}
@@ -288,6 +295,7 @@ OCR / Scan Support
 | POST | `/api/restaurants/{id}/invite-code` | Manager | สร้างหรือเปลี่ยน invite code สำหรับเชิญพนักงาน |
 | GET | `/api/restaurants/{id}/members` | Manager | ดูรายชื่อสมาชิกในร้าน |
 | POST | `/api/ingredients` | Manager, Employee | เพิ่มวัตถุดิบใหม่เข้าสู่ระบบของร้าน |
+| POST | `/api/ingredients/batch` | Manager, Employee | เพิ่มวัตถุดิบหลายรายการพร้อมกันใน lot เดียว เช่น เพิ่มเนื้อหมูหลายชิ้นส่วนโดยใช้วันหมดอายุและหน่วยร่วมกัน |
 | GET | `/api/ingredients?restaurantId=&status=&category=` | Manager, Employee | ดูรายการวัตถุดิบโดยกรองตามร้าน สถานะ และหมวดหมู่ได้ พร้อมข้อมูล quantity และ unit |
 | GET | `/api/ingredients/{id}` | Manager, Employee | ดูรายละเอียดวัตถุดิบรายชิ้น รวมทั้ง quantity คงเหลือและ unit |
 | PUT | `/api/ingredients/{id}` | Manager, Employee | แก้ไขข้อมูลวัตถุดิบ เช่น ชื่อ หมวดหมู่ quantity unit วันหมดอายุ และการแจ้งเตือน |
@@ -305,7 +313,7 @@ OCR / Scan Support
 | GET | `/api/usage-history/{id}` | Manager | ดูรายละเอียดประวัติการใช้งานแต่ละรายการ |
 | POST | `/api/suggestions/menu` | Manager, Employee | ขอเมนูแนะนำจากวัตถุดิบที่มีหรือใกล้หมดอายุ |
 | GET | `/api/suggestions/ingredients/near-expiry?restaurantId=` | Manager, Employee | ดูกลุ่มวัตถุดิบใกล้หมดอายุเพื่อใช้เป็นต้นทางของคำแนะนำ |
-| GET | `/api/suggestions/menu/{ingredientName}` | Manager, Employee | ดูเมนูแนะนำที่สัมพันธ์กับวัตถุดิบที่ระบุ |
+| GET | `/api/suggestions/menu/{ingredientName}?restaurantId=` | Manager, Employee | ดูเมนูแนะนำที่สัมพันธ์กับวัตถุดิบที่ระบุ โดยใช้ stock ของร้านเพื่อแยกของที่มีและของที่ขาด |
 | GET | `/api/purchase-settings/{restaurantId}` | Manager | ดูค่ารอบการซื้อวัตถุดิบของร้าน เช่น buy cycle days |
 | PUT | `/api/purchase-settings/{restaurantId}` | Manager | ตั้งค่าหรือแก้ไขรอบการซื้อวัตถุดิบของร้าน |
 | GET | `/api/purchase-recommendations?restaurantId=` | Manager | ดูรายการ recommendation สำหรับการซื้อวัตถุดิบรอบถัดไป |
@@ -316,6 +324,99 @@ OCR / Scan Support
 | POST | `/api/ocr/scan` | Manager, Employee | สแกนข้อมูลวันหมดอายุจากกล้องหรือแหล่งข้อมูลสด |
 | POST | `/api/ocr/scan-image` | Manager, Employee | อัปโหลดรูปภาพเพื่อให้ระบบ OCR อ่านข้อมูล |
 | POST | `/api/ocr/extract-expiry-date` | Manager, Employee | แยกและตีความวันหมดอายุจากข้อความหรือผล OCR |
+
+### 3.2) Ingredient Batch Lot Request Example
+
+ใช้สำหรับ flow รับของเข้าร้านที่มีวัตถุดิบหลายชิ้นส่วนในครั้งเดียว เช่น เพิ่มเนื้อหมู 1 lot แล้วเลือกชิ้นส่วนหลายรายการจาก dropdown
+
+```http
+POST /api/ingredients/batch
+```
+
+```json
+{
+  "restaurantId": "restaurant-id",
+  "lotName": "เนื้อหมู",
+  "category": "meat",
+  "unit": "kg",
+  "categoryUnitHint": "kg",
+  "expiryDate": "2026-08-12",
+  "notifyDaysBefore": 2,
+  "scannedBy": "user-id",
+  "scannedAt": "2026-08-06T09:17:25.457Z",
+  "items": [
+    {
+      "partName": "สันคอหมู",
+      "initialQuantity": 2,
+      "quantity": 2
+    },
+    {
+      "partName": "หมูสามชั้น",
+      "initialQuantity": 3,
+      "quantity": 3
+    },
+    {
+      "partName": "สะโพกหมู",
+      "initialQuantity": 4,
+      "quantity": 4
+    }
+  ]
+}
+```
+
+ผลลัพธ์คือระบบสร้าง ingredient แยกตามชิ้นส่วน แต่ทุก record ใช้ lotId เดียวกัน เช่น
+
+- เนื้อหมู - สันคอหมู
+- เนื้อหมู - หมูสามชั้น
+- เนื้อหมู - สะโพกหมู
+
+### 3.3) AI Menu Suggestion Request Example
+
+ระบบเรียก KKU IntelSphere API จาก backend โดยอ่าน config จาก `.env`
+
+```env
+KKU_AI_BASE_URL=https://gen.ai.kku.ac.th/api/v1
+KKU_AI_API_KEY=your-kku-api-key
+KKU_AI_MODEL=gemini-2.5-flash-lite
+```
+
+ขอเมนูจากวัตถุดิบหลายรายการ:
+
+```http
+POST /api/suggestions/menu
+```
+
+```json
+{
+  "restaurantId": "restaurant-id",
+  "ingredientNames": ["Chicken Breast", "Egg"],
+  "maxMenus": 5,
+  "language": "th"
+}
+```
+
+ขอเมนูจากวัตถุดิบ 1 รายการ:
+
+```http
+GET /api/suggestions/menu/Chicken%20Breast?restaurantId=restaurant-id
+```
+
+ดึงวัตถุดิบใกล้หมดอายุพร้อมเมนูแนะนำ:
+
+```http
+GET /api/suggestions/ingredients/near-expiry?restaurantId=restaurant-id
+```
+
+ผลลัพธ์ของเมนูแนะนำจะมีข้อมูลหลัก:
+
+- menuName
+- description
+- ingredientsRequired
+- ingredientsInStock
+- missingIngredients
+- steps
+- priority
+- reason
 
 ### 4) Backend Workflow
 
@@ -331,6 +432,17 @@ OCR / Scan Support
 2. Backend validate ชื่อ, category, initialQuantity, quantity, unit, expiryDate, notifyDaysBefore
 3. ระบบบันทึกลงฐานข้อมูลพร้อม createdAt/updatedAt
 4. สร้างประวัติการเพิ่มข้อมูล
+
+#### Ingredient Batch Lot Add Flow
+1. ผู้ใช้เลือกประเภทวัตถุดิบหลัก เช่น เนื้อหมู หรือ ไก่
+2. Frontend แสดง field ส่วนกลางของ lot เช่น expiryDate, notifyDaysBefore, category, unit
+3. ผู้ใช้เลือกชิ้นส่วนจาก dropdown เช่น สันคอหมู, หมูสามชั้น, สะโพกหมู หรือ ปีกบนไก่, น่องไก่
+4. ผู้ใช้กดเพิ่มแถวชิ้นส่วนและกรอก quantity ของแต่ละชิ้น
+5. Frontend ส่งข้อมูลไปที่ `POST /api/ingredients/batch`
+6. Backend สร้าง lotId เดียวกันให้ ingredient ทุกชิ้นใน request
+7. Backend สร้าง ingredient แยกตามชิ้นส่วน เช่น `เนื้อหมู - สันคอหมู`, `เนื้อหมู - หมูสามชั้น`
+8. Ingredient แต่ละชิ้นยัง consume, restock, adjust, used, delete ได้แยกกัน
+9. บันทึก usage history เป็น added แยกตาม ingredient แต่ละรายการ
 
 #### Ingredient Consume Flow
 1. Frontend เลือกรายการวัตถุดิบและกรอกจำนวนที่ใช้
@@ -379,6 +491,7 @@ Frontend ต้องเน้นการใช้งานจริงใน�
 - Ingredient detail / edit screen
 - Ingredient consume modal or page
 - Ingredient restock / stock adjustment modal
+- Ingredient batch lot add screen สำหรับรับของเข้าร้านหลายรายการในครั้งเดียว
 - Scan screen for OCR
 - Add ingredient dialog or page
 - Suggestions screen
@@ -477,6 +590,7 @@ Frontend ต้องเน้นการใช้งานจริงใน�
 ความสัมพันธ์หลัก
 - restaurant 1 ต่อ many users
 - restaurant 1 ต่อ many ingredients
+- lotId 1 ต่อ many ingredients ในกรณีรับวัตถุดิบหลายชิ้นส่วนเข้าพร้อมกัน
 - ingredient 1 ต่อ many usage_history
 - restaurant 1 ต่อ many notifications
 - restaurant 1 ต่อ 1 purchase setting สำหรับ v1
@@ -489,6 +603,7 @@ Frontend ต้องเน้นการใช้งานจริงใน�
 - สร้างร้านอาหารและ invite code ได้
 - เพิ่ม แก้ไข ลบ เปลี่ยนสถานะวัตถุดิบได้
 - เพิ่มวัตถุดิบพร้อม quantity และ unit ได้
+- เพิ่มวัตถุดิบหลายชิ้นส่วนใน lot เดียวได้ เช่น เนื้อหมู 1 lot มีสันคอหมู หมูสามชั้น และสะโพกหมู
 - ใช้วัตถุดิบบางส่วนและหัก stock ได้
 - ระบบ mark วัตถุดิบเป็น used อัตโนมัติเมื่อ quantity หมดได้
 - ดูรายการวัตถุดิบและสถานะได้
@@ -510,6 +625,7 @@ Frontend ต้องเน้นการใช้งานจริงใน�
 - เก็บ audit trail สำหรับการแก้ไขและลบข้อมูล
 - แยกให้ชัดระหว่าง flow consume, restock, และ manual adjustment
 - ทำ quantity และ unit ให้เป็น canonical data ของ ingredient แต่ละรายการ
+- ใช้ lotId เป็นข้อมูลสำหรับ group รายการที่รับเข้าพร้อมกัน แต่ไม่แทนที่ ingredientId ของแต่ละวัตถุดิบ
 - ทำ API ให้พร้อมต่อยอดเป็น mobile app และ web app ได้ในอนาคต
 
 ## คำสั่งสุดท้ายสำหรับการพัฒนา
