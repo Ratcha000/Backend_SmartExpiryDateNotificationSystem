@@ -31,13 +31,20 @@ spring:
       mode: never
 
 server:
-  port: ${SERVER_PORT:8080}
+  port: ${PORT:${SERVER_PORT:8080}}
 
 app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
   jwt:
     secret: ${JWT_SECRET:${SUPABASE_JWT_SECRET:Q29uZmlndXJlZC1kZWZhdWx0LXNlY3JldC1mb3ItZGV2ZWxvcG1lbnQtMTIzNDU2Nzg5MA==}}
     access-expiration-minutes: ${JWT_ACCESS_EXPIRATION_MINUTES:15}
     refresh-expiration-days: ${JWT_REFRESH_EXPIRATION_DAYS:7}
+  ai:
+    kku:
+      base-url: ${KKU_AI_BASE_URL:https://gen.ai.kku.ac.th/api/v1}
+      api-key: ${KKU_AI_API_KEY:}
+      model: ${KKU_AI_MODEL:gemini-2.5-flash-lite}
 
 springdoc:
   swagger-ui:
