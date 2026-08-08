@@ -44,7 +44,7 @@ app:
     kku:
       base-url: ${KKU_AI_BASE_URL:https://gen.ai.kku.ac.th/api/v1}
       api-key: ${KKU_AI_API_KEY:}
-      model: ${KKU_AI_MODEL:gemini-2.5-flash-lite}
+      model: ${KKU_AI_MODEL:gemini-3.5-flash-lite}
 
 springdoc:
   swagger-ui:
