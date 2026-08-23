@@ -32,6 +32,22 @@ public class KkuAiClient {
     }
 
     public List<SuggestedMenuResponse> suggestMenus(String systemPrompt, String userPrompt) {
+        try {
+            return parseMenus(complete(systemPrompt, userPrompt));
+        } catch (Exception exception) {
+            throw new IllegalArgumentException("KKU AI request failed: " + exception.getMessage());
+        }
+    }
+
+    public String completeJson(String systemPrompt, String userPrompt) {
+        try {
+            return cleanJsonContent(extractMessageContent(complete(systemPrompt, userPrompt)));
+        } catch (Exception exception) {
+            throw new IllegalArgumentException("KKU AI request failed: " + exception.getMessage());
+        }
+    }
+
+    private String complete(String systemPrompt, String userPrompt) {
         ensureConfigured();
 
         Map<String, Object> body = Map.of(
@@ -52,30 +68,15 @@ public class KkuAiClient {
                     .retrieve()
                     .body(String.class);
 
-            return parseMenus(response);
+            return response;
         } catch (RestClientResponseException exception) {
             throw new IllegalArgumentException("KKU AI request failed: " + exception.getStatusCode()
                     + " " + exception.getResponseBodyAsString());
-        } catch (Exception exception) {
-            throw new IllegalArgumentException("KKU AI request failed: " + exception.getMessage());
         }
     }
 
     private List<SuggestedMenuResponse> parseMenus(String chatCompletionResponse) throws Exception {
-        JsonNode root = objectMapper.readTree(chatCompletionResponse);
-        JsonNode errorMessageNode = root.path("error").path("message");
-        if (errorMessageNode.isTextual() && !errorMessageNode.asText().isBlank()) {
-            throw new IllegalArgumentException("KKU AI returned an error: " + errorMessageNode.asText());
-        }
-
-        JsonNode contentNode = root.path("choices").path(0).path("message").path("content");
-        String rawContent = extractContent(contentNode);
-        if (rawContent.isBlank()) {
-            throw new IllegalArgumentException("KKU AI response did not contain message content. Response preview: "
-                    + preview(chatCompletionResponse));
-        }
-
-        String content = cleanJsonContent(rawContent);
+        String content = cleanJsonContent(extractMessageContent(chatCompletionResponse));
         JsonNode menuRoot = objectMapper.readTree(content);
 
         JsonNode menusNode = menuRoot.isArray() ? menuRoot : menuRoot.path("menus");
@@ -88,6 +89,22 @@ public class KkuAiClient {
             throw new IllegalArgumentException("KKU AI returned an empty menus array");
         }
         return menus;
+    }
+
+    private String extractMessageContent(String chatCompletionResponse) throws Exception {
+        JsonNode root = objectMapper.readTree(chatCompletionResponse);
+        JsonNode errorMessageNode = root.path("error").path("message");
+        if (errorMessageNode.isTextual() && !errorMessageNode.asText().isBlank()) {
+            throw new IllegalArgumentException("KKU AI returned an error: " + errorMessageNode.asText());
+        }
+
+        JsonNode contentNode = root.path("choices").path(0).path("message").path("content");
+        String rawContent = extractContent(contentNode);
+        if (rawContent.isBlank()) {
+            throw new IllegalArgumentException("KKU AI response did not contain message content. Response preview: "
+                    + preview(chatCompletionResponse));
+        }
+        return rawContent;
     }
 
     private String extractContent(JsonNode contentNode) {
