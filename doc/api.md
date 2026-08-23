@@ -259,6 +259,8 @@ Purchase Planning
 - GET /api/purchase-settings/{restaurantId}
 - PUT /api/purchase-settings/{restaurantId}
 - GET /api/purchase-recommendations?restaurantId=
+- GET /api/purchase-recommendations/runs?restaurantId=&limit=
+- GET /api/purchase-recommendations/runs/{runId}
 - POST /api/purchase-recommendations/generate
 
 Notifications
@@ -316,7 +318,9 @@ OCR / Scan Support
 | GET | `/api/suggestions/menu/{ingredientName}?restaurantId=` | Manager, Employee | ดูเมนูแนะนำที่สัมพันธ์กับวัตถุดิบที่ระบุ โดยใช้ stock ของร้านเพื่อแยกของที่มีและของที่ขาด |
 | GET | `/api/purchase-settings/{restaurantId}` | Manager | ดูค่ารอบการซื้อวัตถุดิบของร้าน เช่น buy cycle days |
 | PUT | `/api/purchase-settings/{restaurantId}` | Manager | ตั้งค่าหรือแก้ไขรอบการซื้อวัตถุดิบของร้าน |
-| GET | `/api/purchase-recommendations?restaurantId=` | Manager | ดูรายการ recommendation สำหรับการซื้อวัตถุดิบรอบถัดไป |
+| GET | `/api/purchase-recommendations?restaurantId=` | Manager | ดูรายการ recommendation ของรอบล่าสุดที่สำเร็จ |
+| GET | `/api/purchase-recommendations/runs?restaurantId=&limit=` | Manager | ดูประวัติการ generate ย้อนหลัง สรุปรอบละ 1 รายการ เรียงใหม่ไปเก่า |
+| GET | `/api/purchase-recommendations/runs/{runId}` | Manager | ดูรายละเอียดของรอบใดรอบหนึ่ง พร้อมรายการ recommendation ทั้งหมดของรอบนั้น |
 | POST | `/api/purchase-recommendations/generate` | Manager | สั่งให้ระบบคำนวณ recommendation ใหม่จาก stock และ usage history ล่าสุด |
 | GET | `/api/notifications` | Manager, Employee | ดูรายการการแจ้งเตือนของผู้ใช้หรือของร้าน |
 | POST | `/api/notifications/test` | Manager | ทดสอบการสร้างหรือส่ง notification |

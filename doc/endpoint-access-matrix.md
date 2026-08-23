@@ -68,7 +68,18 @@
 | GET | `/api/usage-history` | ✗ | ✓ | ✗ | ดูรายการประวัติการใช้งานของร้าน เฉพาะ manager |
 | GET | `/api/usage-history/{id}` | ✗ | ✓ | ✗ | ดูรายละเอียดประวัติการใช้งานตาม id เฉพาะ manager |
 
-## 6. เอกสารระบบ
+## 6. Purchase Planning
+
+| Method | Endpoint | Public | Manager | Employee | หน้าที่ |
+| --- | --- | --- | --- | --- | --- |
+| GET | `/api/purchase-settings/{restaurantId}` | ✗ | ✓ | ✗ | ดูค่าตั้งรอบซื้อของร้าน ถ้ายังไม่เคยตั้งจะคืนค่า default |
+| PUT | `/api/purchase-settings/{restaurantId}` | ✗ | ✓ | ✗ | ตั้งวันซื้อของ เวลาแจ้งเตือน จำนวนรอบย้อนหลัง และ % เผื่อกันขาด |
+| POST | `/api/purchase-recommendations/generate` | ✗ | ✓ | ✗ | สั่ง generate คำแนะนำการซื้อทันที บันทึกเป็นรอบใหม่ `source=MANUAL` |
+| GET | `/api/purchase-recommendations?restaurantId=` | ✗ | ✓ | ✗ | ดูรายการของรอบล่าสุดที่สำเร็จ |
+| GET | `/api/purchase-recommendations/runs?restaurantId=&limit=` | ✗ | ✓ | ✗ | ดูประวัติการ generate ย้อนหลัง สรุปรอบละ 1 รายการ เรียงใหม่ไปเก่า รวมรอบที่ล้มเหลว |
+| GET | `/api/purchase-recommendations/runs/{runId}` | ✗ | ✓ | ✗ | ดูรายละเอียดรอบใดรอบหนึ่ง พร้อมรายการทั้งหมดของรอบนั้น ต้องเป็นรอบของร้านตัวเอง |
+
+## 7. เอกสารระบบ
 
 | Method | Endpoint | Public | Manager | Employee | หน้าที่ |
 | --- | --- | --- | --- | --- | --- |
