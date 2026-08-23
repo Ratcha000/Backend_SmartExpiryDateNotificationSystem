@@ -40,6 +40,9 @@ app:
     secret: ${JWT_SECRET:${SUPABASE_JWT_SECRET:Q29uZmlndXJlZC1kZWZhdWx0LXNlY3JldC1mb3ItZGV2ZWxvcG1lbnQtMTIzNDU2Nzg5MA==}}
     access-expiration-minutes: ${JWT_ACCESS_EXPIRATION_MINUTES:15}
     refresh-expiration-days: ${JWT_REFRESH_EXPIRATION_DAYS:7}
+  purchase:
+    history:
+      max-runs: ${PURCHASE_HISTORY_MAX_RUNS:20}
   ai:
     kku:
       base-url: ${KKU_AI_BASE_URL:https://gen.ai.kku.ac.th/api/v1}
